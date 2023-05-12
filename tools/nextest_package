@@ -106,7 +106,7 @@ def collect_files(metadata: Any, output_directory: Path, strip_binaries: bool):
     ]
 
     # Create all target directories
-    for folder in set((output_directory / d).parent.resolve() for _, d in manifest):
+    for folder in {(output_directory / d).parent.resolve() for _, d in manifest}:
         folder.mkdir(exist_ok=True, parents=True)
 
     # Use multiple processes of rsync copy the files fast (and only if needed)

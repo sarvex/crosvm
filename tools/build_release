@@ -163,12 +163,12 @@ def main():
         f"--exclude={x}" for x in PGO_EXCLUDE if args.profile_generate or args.profile_use
     ]
     if build_target == Triple.from_shorthand("riscv64"):
-        exclude_args += ["--exclude=" + s for s in DO_NOT_BUILD_RISCV64]
+        exclude_args += [f"--exclude={s}" for s in DO_NOT_BUILD_RISCV64]
 
     features = build_target.feature_flag
     cargo_args = [
         "--release",
-        "--features=" + features,
+        f"--features={features}",
         f"--target={build_target}",
         "--workspace",
         *exclude_args,
@@ -176,15 +176,15 @@ def main():
     ]
 
     build_env = os.environ.copy()
-    build_env.update(build_target.get_cargo_env())
+    build_env |= build_target.get_cargo_env()
     build_env.setdefault("RUSTFLAGS", "")
     build_env["RUSTFLAGS"] += " -D warnings"
     if args.strip:
         build_env["RUSTFLAGS"] += " -C strip=symbols"
     if args.profile_generate:
-        build_env["RUSTFLAGS"] += " -C profile-generate=" + args.profile_generate
+        build_env["RUSTFLAGS"] += f" -C profile-generate={args.profile_generate}"
     if args.profile_use:
-        build_env["RUSTFLAGS"] += " -C profile-use=" + args.profile_use
+        build_env["RUSTFLAGS"] += f" -C profile-use={args.profile_use}"
 
     executables = list(cargo("build", CROSVM_ROOT, cargo_args, build_env))
 

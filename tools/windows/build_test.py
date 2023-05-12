@@ -73,7 +73,7 @@ def get_target_path(triple, kind, test_it):
       kind: 'debug' or 'release'.
       test_it: If this target is tested.
     """
-    target_path = os.path.abspath(os.path.join(os.sep, "tmp", "{}_{}".format(triple, kind)))
+    target_path = os.path.abspath(os.path.join(os.sep, "tmp", f"{triple}_{kind}"))
     if test_it:
         target_path += "_test"
     return target_path
@@ -104,7 +104,7 @@ def build_target(
       env: Enviroment variables to run cargo with.
       only_build_targets: Only build packages that will be tested.
     """
-    args = ["cargo", "build", "--target=%s" % triple]
+    args = ["cargo", "build", f"--target={triple}"]
 
     if is_release:
         args.append("--release")
@@ -114,12 +114,8 @@ def build_target(
         if not IS_WINDOWS:
             test_modules += LINUX_BUILD_ONLY_MODULES
         for mod in test_modules:
-            args.append("-p")
-            args.append(mod)
-
-    args.append("--features")
-    args.append(",".join(BUILD_FEATURES))
-
+            args.extend(("-p", mod))
+    args.extend(("--features", ",".join(BUILD_FEATURES)))
     if subprocess.Popen(args, env=env).wait() != 0:
         return False, "build error"
     if IS_WINDOWS and not validate_symbols(triple, is_release):
@@ -139,7 +135,7 @@ def test_target_modules(triple, is_release, env, no_run, modules, parallel):
       modules: List of module strings to test.
       parallel: True to run the tests in parallel threads.
     """
-    args = ["cargo", "test", "--target=%s" % triple]
+    args = ["cargo", "test", f"--target={triple}"]
 
     if is_release:
         args.append("--release")
@@ -148,15 +144,10 @@ def test_target_modules(triple, is_release, env, no_run, modules, parallel):
         args.append("--no-run")
 
     for mod in modules:
-        args.append("-p")
-        args.append(mod)
-
-    args.append("--features")
-    args.append(",".join(ENABLED_FEATURES))
-
+        args.extend(("-p", mod))
+    args.extend(("--features", ",".join(ENABLED_FEATURES)))
     if not parallel:
-        args.append("--")
-        args.append("--test-threads=1")
+        args.extend(("--", "--test-threads=1"))
     return subprocess.Popen(args, env=env).wait() == 0
 
 
@@ -217,7 +208,7 @@ def build_or_test(
     is_release = kind == "release"
 
     env = os.environ.copy()
-    env["TARGET_CC"] = "%s-clang" % triple
+    env["TARGET_CC"] = f"{triple}-clang"
     env["SYSROOT"] = sysroot
     env["CARGO_TARGET_DIR"] = target_path
 
@@ -233,7 +224,7 @@ def build_or_test(
         # downstream's crosvm linux kokoro presubmits.
         # env['LD_LIBRARY_PATH'] = libdir + ':' + lib64dir
         env["PKG_CONFIG_ALLOW_CROSS"] = "1"
-        env["PKG_CONFIG_LIBDIR"] = libdir_pc + ":" + lib64dir_pc
+        env["PKG_CONFIG_LIBDIR"] = f"{libdir_pc}:{lib64dir_pc}"
         env["PKG_CONFIG_SYSROOT_DIR"] = sysroot
         if "KOKORO_JOB_NAME" not in os.environ:
             env["RUSTFLAGS"] = "-C linker=" + env["TARGET_CC"]
@@ -242,7 +233,7 @@ def build_or_test(
 
     if IS_WINDOWS and not test_it:
         for symbol in SYMBOL_EXPORTS:
-            env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C link-args=/EXPORT:{}".format(symbol)
+            env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + f" -C link-args=/EXPORT:{symbol}"
 
     deps_dir = os.path.join(target_path, triple, kind, "deps")
     if not os.path.exists(deps_dir):
@@ -305,7 +296,7 @@ def get_test_modules(skip_file_name):
     test_modules_serial = []
 
     file_in_crate = lambda file_name: os.path.isfile(os.path.join(crate.path, file_name))
-    serial_file_name = "{}build_test_serial".format(".win_" if IS_WINDOWS else ".")
+    serial_file_name = f'{".win_" if IS_WINDOWS else "."}build_test_serial'
     with os.scandir() as it:
         for crate in it:
             if file_in_crate("Cargo.toml"):
@@ -330,7 +321,7 @@ def get_stripped_size(triple):
     """
     target_path = get_target_path(triple, "release", False)
     bin_path = os.path.join(target_path, triple, "release", crosvm_binary_name())
-    proc = subprocess.Popen(["%s-strip" % triple, bin_path])
+    proc = subprocess.Popen([f"{triple}-strip", bin_path])
 
     if proc.wait() != 0:
         return "failed"
@@ -438,7 +429,17 @@ def main(argv):
     opts = get_parser().parse_args(argv)
     os.environ["RUST_BACKTRACE"] = "1"
     if IS_WINDOWS:
-        if opts.build_mode == "release":
+        if opts.build_mode == "debug":
+            build_test_cases = [
+                (
+                    opts.x86_64_msvc_sysroot,
+                    X86_64_WIN_MSVC_TRIPLE,
+                    "debug",
+                    opts.skip_file_name,
+                    True,
+                ),
+            ]
+        elif opts.build_mode == "release":
             build_test_cases = [
                 # (sysroot path, target triple, debug/release, skip_file_name, should test?)
                 (
@@ -454,16 +455,6 @@ def main(argv):
                     "release",
                     opts.skip_file_name,
                     False,
-                ),
-            ]
-        elif opts.build_mode == "debug":
-            build_test_cases = [
-                (
-                    opts.x86_64_msvc_sysroot,
-                    X86_64_WIN_MSVC_TRIPLE,
-                    "debug",
-                    opts.skip_file_name,
-                    True,
                 ),
             ]
     else:
@@ -502,12 +493,7 @@ def main(argv):
             case for case in build_test_cases if case[2] == "release" and not case[4]
         ]
 
-    # First we need to build necessary DLLs.
-    # Because build_or_test may be called by multithreads in parallel,
-    # we want to build the DLLs only once up front.
-    modes = set()
-    for case in build_test_cases:
-        modes.add(case[2])
+    modes = {case[2] for case in build_test_cases}
     for mode in modes:
         build_dlls(os.getcwd(), mode, opts.job_type, BUILD_FEATURES)
 
@@ -530,7 +516,7 @@ def main(argv):
     print_summary("build", build_test_cases, results, opts)
 
     # exit early if any builds failed
-    if not all([r[0] for r in results]):
+    if not all(r[0] for r in results):
         return 1
 
     # run tests for cases where should_test is True
@@ -551,10 +537,7 @@ def main(argv):
 
     print_summary("test", test_cases, results, opts)
 
-    if not all([r[0] for r in results]):
-        return 1
-
-    return 0
+    return 1 if not all(r[0] for r in results) else 0
 
 
 def print_summary(title, cases, results, opts):
@@ -562,7 +545,7 @@ def print_summary(title, cases, results, opts):
     print(f"{title} summary:")
     for test_case, result in zip(cases, results):
         _, triple, kind, _, test_it = test_case
-        title = "%s_%s" % (triple.split("-")[0], kind)
+        title = f'{triple.split("-")[0]}_{kind}'
         if test_it:
             title += "_test"
 
@@ -582,7 +565,7 @@ def print_summary(title, cases, results, opts):
             and not opts.only_build_targets
             and not IS_WINDOWS
         ):
-            display_size = get_stripped_size(triple) + " stripped binary"
+            display_size = f"{get_stripped_size(triple)} stripped binary"
 
         print("%20s: %s%15s%s %s" % (title, result_color, result_msg, END_COLOR, display_size))
 

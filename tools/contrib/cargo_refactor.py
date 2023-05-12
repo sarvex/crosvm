@@ -75,15 +75,15 @@ def move_crate(from_path: Path, to_path: Path):
 
 
 def update_workspace_members():
-    members: list[str] = []
-    members.append("members = [")
-    for toml in sorted(Path().glob("*/Cargo.toml")):
-        members.append(f'    "{toml.parent}",')
-    for toml in sorted(Path().glob("common/*/Cargo.toml")):
-        members.append(f'    "{toml.parent}",')
-    members.append('    "third_party/vmm_vhost",')
-
-    members.append("]")
+    members: list[str] = ["members = ["]
+    members.extend(
+        f'    "{toml.parent}",' for toml in sorted(Path().glob("*/Cargo.toml"))
+    )
+    members.extend(
+        f'    "{toml.parent}",'
+        for toml in sorted(Path().glob("common/*/Cargo.toml"))
+    )
+    members.extend(('    "third_party/vmm_vhost",', "]"))
     replace_in_file(Path("Cargo.toml"), re.compile(r"members = \[[^\]]+\]"), "\n".join(members))
 
 

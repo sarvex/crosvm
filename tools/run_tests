@@ -127,7 +127,7 @@ def check_build_prerequisites(triple: Triple):
     installed_toolchains = cmd("rustup target list --installed").lines()
     if str(triple) not in installed_toolchains:
         console.print(f"Your host is not configured to build for [green]{triple}[/green]")
-        console.print(f"[green]Tip:[/green] Run tests in the dev container with:")
+        console.print("[green]Tip:[/green] Run tests in the dev container with:")
         console.print()
         console.print(
             f"  [blue]$ tools/dev_container tools/run_tests {' '.join(sys.argv[1:])}[/blue]"
@@ -157,10 +157,7 @@ def get_vm_arch(triple: Triple):
 @argh.arg("--no-integration-tests", help="Do not run integration tests.")
 @argh.arg("--no-strip", help="Do not strip test binaries of debug info.")
 @argh.arg("--run-root-tests", help="Enables integration tests that require root privileges.")
-@argh.arg(
-    "--features",
-    help=f"List of comma separated features to be passed to cargo. Defaults to `all-$platform`",
-)
+@argh.arg("--features", help="List of comma separated features to be passed to cargo. Defaults to `all-$platform`")
 @argh.arg("--profile", help="Select nextest profile.")
 @argh.arg("--no-parallel", help="Do not parallelize integration tests. Slower but more stable.")
 @argh.arg("--repetitions", help="Repeat all tests, useful for checking test stability.")
@@ -255,7 +252,7 @@ def main(
         dut_str = "Run on host"
     elif dut == "vm" and os.name == "posix":
         dut_str = f"Run on built-in {get_vm_arch(triple)} vm"
-    elif dut == None:
+    elif dut is None:
         dut_str = "[yellow]Skip[/yellow]"
     else:
         raise Exception(
@@ -319,7 +316,7 @@ def main(
     console.rule("Building tests")
 
     if triple == Triple.from_shorthand("riscv64"):
-        nextest_args += ["--exclude=" + s for s in DO_NOT_BUILD_RISCV64]
+        nextest_args += [f"--exclude={s}" for s in DO_NOT_BUILD_RISCV64]
 
     nextest_run = configure_cargo(
         cmd("cargo nextest run"), triple, features, no_default_features
@@ -406,8 +403,7 @@ def main(
                         )
                     if dut == "host":
                         console.print(
-                            f"[yellow]Tip:[/yellow] Running tests on the host may not be reliable. "
-                            "Prefer [bold]--dut=vm[/bold]."
+                            '[yellow]Tip:[/yellow] Running tests on the host may not be reliable. Prefer [bold]--dut=vm[/bold].'
                         )
                     sys.exit(returncode)
 

@@ -34,11 +34,10 @@ def freq_dict_to_freq_file_str(freq_dict: Dict[str, int]) -> str:
 
 
 def parse_crosvm_log(crosvm_log: str) -> List[Dict[str, str]]:
-    # Load each seccomp_trace event json as dict
-    seccomp_trace_events = []
-    for match in seccomp_trace_log_re.finditer(crosvm_log):
-        seccomp_trace_events.append(json.loads(match.group(1)))
-    return seccomp_trace_events
+    return [
+        json.loads(match.group(1))
+        for match in seccomp_trace_log_re.finditer(crosvm_log)
+    ]
 
 
 def parse_seccomp_trace_events_to_pid_table(
@@ -48,7 +47,7 @@ def parse_seccomp_trace_events_to_pid_table(
     # Create is when a jail is created and a policy file is loaded into the new jail. "name" field in this type of event will contain the policy file name used in this jail.
     # Clone is when a jail's policy is duplicated into a new jail. Cloned jail can be used to contain different processes with the same policy.
     # Fork is when a jail is enabled and a process is forked to be executed inside the jail.
-    addr_to_name: Dict[str, str] = dict()
+    addr_to_name: Dict[str, str] = {}
     result = []
     for event in seccomp_trace_events:
         if event["event"] == "minijail_create":
@@ -58,7 +57,7 @@ def parse_seccomp_trace_events_to_pid_table(
         elif event["event"] == "minijail_fork":
             result.append((int(event["pid"]), addr_to_name[event["jail_addr"]]))
         else:
-            raise ValueError("Unrecognized event type: {}".format(event["event"]))
+            raise ValueError(f'Unrecognized event type: {event["event"]}')
     return result
 
 
@@ -82,7 +81,7 @@ def main(target_name: str, log_seccomp: bool = False, log_seccomp_output_dir: st
     chdir(CROSVM_ROOT / "e2e_tests")
 
     build_env = os.environ.copy()
-    build_env.update(Triple.host_default().get_cargo_env())
+    build_env |= Triple.host_default().get_cargo_env()
 
     with tempfile.TemporaryDirectory() as tempdir:
         if log_seccomp:
@@ -90,9 +89,7 @@ def main(target_name: str, log_seccomp: bool = False, log_seccomp_output_dir: st
             build_env.update(
                 {
                     "CROSVM_CARGO_TEST_LOG_LEVEL_DEBUG": "1",
-                    "CROSVM_CARGO_TEST_E2E_WRAPPER_CMD": "strace -ff --output={}".format(
-                        os.path.abspath(strace_out_path)
-                    ),
+                    "CROSVM_CARGO_TEST_E2E_WRAPPER_CMD": f"strace -ff --output={os.path.abspath(strace_out_path)}",
                     "CROSVM_CARGO_TEST_LOG_FILE": os.path.abspath(
                         pathlib.Path(tempdir) / "crosvm.log"
                     ),
@@ -109,7 +106,7 @@ def main(target_name: str, log_seccomp: bool = False, log_seccomp_output_dir: st
             policy_freq_dict: Dict[str, Counter[str]] = {}
             for pid, policy_name in pid_table:
                 strace_log = pathlib.Path(
-                    os.path.normpath(strace_out_path) + f".{str(pid)}"
+                    f"{os.path.normpath(strace_out_path)}.{str(pid)}"
                 ).read_text()
                 freq_counter = parse_strace_file_str_to_freq_dict(strace_log)
                 if policy_name in policy_freq_dict:

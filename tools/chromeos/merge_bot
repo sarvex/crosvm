@@ -80,11 +80,12 @@ def list_recent_dry_runs(age: str):
 def bug_notes(commit_range: str):
     "Returns a string with all BUG=... lines of the specified commit range."
     return "\n".join(
-        set(
+        {
             line
             for line in git_log(commit_range, "--pretty=%b").lines()
-            if re.match(r"^BUG=", line, re.I) and not re.match(r"^BUG=None", line, re.I)
-        )
+            if re.match(r"^BUG=", line, re.I)
+            and not re.match(r"^BUG=None", line, re.I)
+        }
     )
 
 
@@ -164,7 +165,7 @@ def create_merge_commits(revision: str, max_size: int = 0, create_dry_run: bool 
 
         # Put together a message containing info about what's in the merge.
         batch_str = f"{i + 1}/{len(batches)}" if len(batches) > 1 else ""
-        title = "Merge with upstream" if not create_dry_run else f"Merge dry run"
+        title = "Merge with upstream" if not create_dry_run else "Merge dry run"
         message = "\n\n".join(
             [
                 f"{title} {date.today().isoformat()} {batch_str}",
@@ -214,8 +215,7 @@ def update_merges(
     gerrit_prerequisites()
     parsed_revision = git("rev-parse", revision).stdout()
 
-    active_merges = list_active_merges()
-    if active_merges:
+    if active_merges := list_active_merges():
         print("Nothing to do. Previous merges are still pending:")
         for merge in active_merges:
             print(merge.pretty_info())
@@ -287,8 +287,7 @@ def update_dry_runs(
 
         dry_run.abandon("Dry completed.")
 
-    active_dry_runs = list_active_dry_runs()
-    if active_dry_runs:
+    if active_dry_runs := list_active_dry_runs():
         print("There are active dry runs, not creating a new one.")
         print("Active dry runs:")
         for dry_run in active_dry_runs:
@@ -310,11 +309,10 @@ def update_dry_runs(
                 *(["l=Commit-Queue+1"] if not TESTING else []),
                 *(["l=Bot-Commit+1"] if is_bot else []),
             )
+        elif has_conflicts:
+            print("Not uploading dry-run with conflicts.")
         else:
-            if has_conflicts:
-                print("Not uploading dry-run with conflicts.")
-            else:
-                print("Nothing to upload.")
+            print("Nothing to upload.")
 
 
 run_commands(

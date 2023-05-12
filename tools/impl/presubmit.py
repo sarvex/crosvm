@@ -78,9 +78,7 @@ class Check(NamedTuple):
         if self.custom_name:
             return self.custom_name
         name = self.check_function.__name__
-        if name.startswith("check_"):
-            return name[len("check_") :]
-        return name
+        return name[len("check_") :] if name.startswith("check_") else name
 
     @property
     def doc(self):
@@ -106,8 +104,7 @@ def list_file_diff():
 
     Falls back to all files tracked by git if there is no upstream branch.
     """
-    upstream = git("rev-parse @{u}").stdout(check=False)
-    if upstream:
+    if upstream := git("rev-parse @{u}").stdout(check=False):
         for line in git("diff --name-status", upstream).lines():
             parts = line.split("\t", 1)
             file = Path(parts[1].strip())
@@ -132,21 +129,22 @@ def should_run_check_on_file(check: Check, file: Path):
             return False
 
     # Match python tools (no file-extension, but with a python shebang line)
-    if check.python_tools:
-        if fnmatch(str(file), "tools/*") and file.suffix == "" and file.is_file():
-            if file.open(errors="ignore").read(32).startswith("#!/usr/bin/env python3"):
-                return True
-
-    # If no constraint is specified, match all files.
-    if not check.files and not check.python_tools:
+    if (
+        check.python_tools
+        and fnmatch(str(file), "tools/*")
+        and file.suffix == ""
+        and file.is_file()
+        and file.open(errors="ignore")
+        .read(32)
+        .startswith("#!/usr/bin/env python3")
+    ):
         return True
 
-    # Otherwise, match only those specified by `files`.
-    for glob in check.files:
-        if fnmatch(str(file), glob):
-            return True
-
-    return False
+    # If no constraint is specified, match all files.
+    if check.files or check.python_tools:
+        return any(fnmatch(str(file), glob) for glob in check.files)
+    else:
+        return True
 
 
 class Task(object):
@@ -202,9 +200,8 @@ class Task(object):
 
         return rich.console.Group(
             *(
-                # Print last log lines without it's original colors
                 rich.text.Text(
-                    "│ " + strip_ansi_escape_sequences(log_line),
+                    f"│ {strip_ansi_escape_sequences(log_line)}",
                     style="light_slate_grey",
                     overflow="ellipsis",
                     no_wrap=True,

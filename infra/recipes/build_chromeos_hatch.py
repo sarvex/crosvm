@@ -55,7 +55,9 @@ def RunSteps(api):
 
         # Apply unmerged commit from upstream to crOS tree
         api.crosvm.step_in_container(
-            "Cherry-pick from upstream revision", ["git", "cherry-pick", ".." + revision], cros=True
+            "Cherry-pick from upstream revision",
+            ["git", "cherry-pick", f"..{revision}"],
+            cros=True,
         )
 
         api.crosvm.step_in_container(

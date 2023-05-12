@@ -47,11 +47,11 @@ def generate_module(
         blocklist,
         "--no-prepend-enum-name",
         "-o",
-        module_name + "_bindings.rs",
+        f"{module_name}_bindings.rs",
     ]
 
     if lib_name:
-        args.extend(["--raw-line", '#[cfg(feature = "{}")]'.format(module_name)])
+        args.extend(["--raw-line", f'#[cfg(feature = "{module_name}")]'])
         args.extend(["--raw-line", '#[link(name = "{}")] extern {{}}'.format(lib_name)])
 
     if derive_default:
@@ -63,10 +63,7 @@ def generate_module(
     if verbose:
         print(" ".join(args))
 
-    if subprocess.Popen(args).wait() == 0:
-        return "pass"
-    else:
-        return "bindgen failed"
+    return "pass" if subprocess.Popen(args).wait() == 0 else "bindgen failed"
 
 
 def download_virgl(src, dst, branch):
@@ -82,10 +79,7 @@ def download_virgl(src, dst, branch):
     if verbose:
         print(" ".join(args))
 
-    if subprocess.Popen(args).wait() == 0:
-        return True
-    else:
-        return False
+    return subprocess.Popen(args).wait() == 0
 
 
 def get_parser():
@@ -119,7 +113,7 @@ def main(argv):
             virgl_src_dir_temp = tempfile.TemporaryDirectory(prefix="virglrenderer-src")
             virgl_src_dir = virgl_src_dir_temp.name
             if not download_virgl(opts.virglrenderer, virgl_src_dir, opts.virgl_branch):
-                print("failed to clone '{}' to '{}'".format(virgl_src_dir, opts.virgl_branch))
+                print(f"failed to clone '{virgl_src_dir}' to '{opts.virgl_branch}'")
                 sys.exit(1)
         else:
             virgl_src_dir = opts.virglrenderer
@@ -173,7 +167,7 @@ def main(argv):
         print("#![allow(non_upper_case_globals)]", file=f)
         print("pub mod virgl_debug_callback_bindings;", file=f)
         for module in modules:
-            print("pub mod", module[0] + "_bindings;", file=f)
+            print("pub mod", f"{module[0]}_bindings;", file=f)
 
 
 if __name__ == "__main__":

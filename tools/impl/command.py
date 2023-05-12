@@ -181,9 +181,8 @@ class Command(object):
         for key, value in envs.items():
             if value is not None:
                 cmd.env_vars[key] = value
-            else:
-                if key in cmd.env_vars:
-                    del cmd.env_vars[key]
+            elif key in cmd.env_vars:
+                del cmd.env_vars[key]
         return cmd
 
     def with_path_env(self, new_path: str):
@@ -201,9 +200,8 @@ class Command(object):
         if color_enabled():
             if always:
                 new_cmd = new_cmd(always)
-        else:
-            if never:
-                new_cmd = new_cmd(never)
+        elif never:
+            new_cmd = new_cmd(never)
         return new_cmd
 
     def with_color_env(self, var_name: str):
@@ -241,13 +239,12 @@ class Command(object):
 
         The target can either be another Command or the argument list to build a new command.
         """
-        if len(args) == 1 and isinstance(args[0], Command):
-            cmd = Command(stdin_cmd=self)
-            cmd.args = args[0].args
-            cmd.env_vars = self.env_vars.copy()
-            return cmd
-        else:
+        if len(args) != 1 or not isinstance(args[0], Command):
             return Command(*args, stdin_cmd=self, env_vars=self.env_vars)
+        cmd = Command(stdin_cmd=self)
+        cmd.args = args[0].args
+        cmd.env_vars = self.env_vars.copy()
+        return cmd
 
     ### Executing programs in the foreground
 
@@ -320,14 +317,13 @@ class Command(object):
 
         if style is None or verbose():
             return self.__run(stdout=None, stderr=None, check=check).returncode
-        else:
-            process = self.popen(stdout=PIPE, stderr=STDOUT)
-            style(process)
-            returncode = process.wait()
-            if returncode != 0 and check:
-                assert process.stdout
-                raise subprocess.CalledProcessError(returncode, process.args)
-            return returncode
+        process = self.popen(stdout=PIPE, stderr=STDOUT)
+        style(process)
+        returncode = process.wait()
+        if returncode != 0 and check:
+            assert process.stdout
+            raise subprocess.CalledProcessError(returncode, process.args)
+        return returncode
 
     def fg(
         self,
@@ -387,11 +383,7 @@ class Command(object):
 
         The program will not be visible to the user unless --very-verbose is specified.
         """
-        stdout = self.stdout(check=check)
-        if stdout:
-            return json.loads(stdout)
-        else:
-            return None
+        return json.loads(stdout) if (stdout := self.stdout(check=check)) else None
 
     def lines(self, check: bool = True, stderr: int = PIPE):
         """
@@ -404,15 +396,11 @@ class Command(object):
     ### Utilities
 
     def __str__(self):
-        stdin = ""
-        if self.stdin_cmd:
-            stdin = str(self.stdin_cmd) + " | "
+        stdin = f"{str(self.stdin_cmd)} | " if self.stdin_cmd else ""
         return stdin + shlex.join(self.args)
 
     def __repr__(self):
-        stdin = ""
-        if self.stdin_cmd:
-            stdin = ", stdin_cmd=" + repr(self.stdin_cmd)
+        stdin = f", stdin_cmd={repr(self.stdin_cmd)}" if self.stdin_cmd else ""
         return f"Command({', '.join(repr(a) for a in self.args)}{stdin})"
 
     ### Private implementation details
@@ -471,8 +459,7 @@ class Command(object):
     @staticmethod
     def __parse_cmd(args: Iterable[Any]) -> List[str]:
         """Parses command line arguments for Command."""
-        res = [parsed for arg in args for parsed in Command.__parse_cmd_args(arg)]
-        return res
+        return [parsed for arg in args for parsed in Command.__parse_cmd_args(arg)]
 
     @staticmethod
     def __parse_cmd_args(arg: Any) -> List[str]:
@@ -571,10 +558,7 @@ class QuotedString(object):
     """
 
     def __init__(self, value: Any):
-        if isinstance(value, Command):
-            self.value = value.stdout()
-        else:
-            self.value = str(value)
+        self.value = value.stdout() if isinstance(value, Command) else str(value)
 
     def __str__(self):
         return f'"{self.value}"'

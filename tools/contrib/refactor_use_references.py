@@ -28,8 +28,7 @@ def tokenize(source: str):
     start = 0
     for i in range(len(source)):
         if source[i] in (" ", "\n", "\t") and i - start > 0:
-            token = source[start:i].strip()
-            if token:
+            if token := source[start:i].strip():
                 yield Token(token, start, i)
             start = i
 
@@ -86,10 +85,7 @@ def replace_use_references(file_path: Path, callback: Callable[[list[str], str],
         contents = file.read()
     chunks: list[str] = []
     for module, source in parse_module_chunks(contents):
-        if module:
-            full_module_parts = module_parts + [module]
-        else:
-            full_module_parts = module_parts
+        full_module_parts = module_parts + [module] if module else module_parts
         chunks.append(
             re.sub(
                 r"([\w\*\_\$]+\:\:)+[\w\*\_]+",
@@ -117,10 +113,11 @@ def use_super_instead_of_crate(root: Path):
 
     def replace(module: list[str], use: str):
         # Patch up weird module structure...
-        if len(module) > 1 and module[0] == "win":
-            # Only the listed modules are actually in win::.
-            # The rest is in the top level.
-            if module[1] not in (
+        if (
+            len(module) > 1
+            and module[0] == "win"
+            and module[1]
+            not in (
                 "file_traits",
                 "syslog",
                 "platform_timer_utils",
@@ -130,9 +127,10 @@ def use_super_instead_of_crate(root: Path):
                 "mmap",
                 "stream_channel",
                 "timer",
-            ):
-                del module[0]
-        if len(module) > 0 and module[0] in ("punch_hole", "write_zeros"):
+            )
+        ):
+            del module[0]
+        if module and module[0] in ("punch_hole", "write_zeros"):
             module = ["write_zeroes", module[0]]
 
         if use.startswith("crate::"):

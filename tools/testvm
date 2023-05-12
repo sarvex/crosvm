@@ -128,7 +128,7 @@ def vm_status(arch: Arch):
         console.print(f"Start the VM with {cli_tip('up')}")
     else:
         console.print(f"{vm} is running but [red]not reachable[/red] on port {port}")
-        console.print(f"Recent logs:")
+        console.print("Recent logs:")
         logs(arch, 10, style="light_slate_grey")
         console.print(f"See all logs with {cli_tip('logs')}")
 

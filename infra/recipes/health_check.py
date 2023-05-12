@@ -38,7 +38,8 @@ def RunSteps(api):
         check_list = result.stdout.strip().split("\n")
         for check in check_list:
             api.crosvm.step_in_container(
-                "tools/presubmit %s" % check, ["tools/presubmit", "--no-delta", check]
+                f"tools/presubmit {check}",
+                ["tools/presubmit", "--no-delta", check],
             )
 
 

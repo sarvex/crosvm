@@ -140,9 +140,7 @@ def color_enabled():
     color_arg = parse_common_args().color
     if color_arg == "never":
         return False
-    if color_arg == "always":
-        return True
-    return sys.stdout.isatty()
+    return True if color_arg == "always" else sys.stdout.isatty()
 
 
 def find_scripts(path: Path, shebang: str):
@@ -152,13 +150,11 @@ def find_scripts(path: Path, shebang: str):
 
 
 def confirm(message: str, default: bool = False):
-    print(message, "[y/N]" if default == False else "[Y/n]", end=" ", flush=True)
+    print(message, "[y/N]" if not default else "[Y/n]", end=" ", flush=True)
     response = sys.stdin.readline().strip()
     if response in ("y", "Y"):
         return True
-    if response in ("n", "N"):
-        return False
-    return default
+    return False if response in ("n", "N") else default
 
 
 def is_cros_repo():
@@ -250,18 +246,18 @@ class Triple(NamedTuple):
     def host_default(cls):
         "Returns the default build triple of the host."
         rustc_info = subprocess.check_output(["rustc", "-vV"], text=True)
-        match = re.search(r"host: (\S+)", rustc_info)
-        if not match:
+        if match := re.search(r"host: (\S+)", rustc_info):
+            return cls.from_str(match[1])
+        else:
             raise Exception(f"Cannot parse rustc info: {rustc_info}")
-        return cls.from_str(match.group(1))
 
     @property
     def feature_flag(self):
         triple_to_shorthand = {v: k for k, v in SHORTHANDS.items()}
-        shorthand = triple_to_shorthand.get(str(self))
-        if not shorthand:
+        if shorthand := triple_to_shorthand.get(str(self)):
+            return f"all-{shorthand}"
+        else:
             raise Exception(f"No feature set for triple {self}")
-        return f"all-{shorthand}"
 
     @property
     def target_dir(self):
@@ -269,11 +265,12 @@ class Triple(NamedTuple):
 
     def get_cargo_env(self):
         """Environment variables to make cargo use the test target."""
-        env: Dict[str, str] = {}
         cargo_target = str(self)
-        env["CARGO_BUILD_TARGET"] = cargo_target
-        env["CARGO_TARGET_DIR"] = str(self.target_dir)
-        env["CROSVM_TARGET_DIR"] = str(crosvm_target_dir())
+        env: Dict[str, str] = {
+            "CARGO_BUILD_TARGET": cargo_target,
+            "CARGO_TARGET_DIR": str(self.target_dir),
+            "CROSVM_TARGET_DIR": str(crosvm_target_dir()),
+        }
         return env
 
     def __str__(self):

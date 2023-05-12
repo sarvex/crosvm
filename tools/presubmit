@@ -456,8 +456,8 @@ GROUPS: List[Group] = [
 ]
 
 # Turn both lists into dicts for convenience
-CHECKS_DICT = dict((c.name, c) for c in CHECKS)
-GROUPS_DICT = dict((c.name, c) for c in GROUPS)
+CHECKS_DICT = {c.name: c for c in CHECKS}
+GROUPS_DICT = {c.name: c for c in GROUPS}
 
 
 def validate_config():

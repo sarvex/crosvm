@@ -27,10 +27,12 @@ def collect_binary_sizes(api, properties):
         [
             "./tools/build_release",
             "--json",
-            "--platform=" + str(properties.test_arch),
+            f"--platform={str(properties.test_arch)}",
             "--strip",
         ],
-        stdout=api.raw_io.output_text(name="Obtain release build output", add_output_log=True),
+        stdout=api.raw_io.output_text(
+            name="Obtain release build output", add_output_log=True
+        ),
     )
 
     if release_build_result.stdout and json.loads(
@@ -41,7 +43,7 @@ def collect_binary_sizes(api, properties):
         release_build_result_dict = json.loads(release_build_result.stdout.strip().splitlines()[-1])
         for target_name, binary_path in release_build_result_dict.items():
             binary_size_result = api.crosvm.step_in_container(
-                "Get binary size for {}".format(target_name),
+                f"Get binary size for {target_name}",
                 [
                     "./tools/infra/binary_size",
                     "--builder-name",
@@ -53,7 +55,11 @@ def collect_binary_sizes(api, properties):
                     "--base-dir",
                     "/scratch/cargo_target/crosvm",
                     # Only upload binary size in postsubmit
-                    *(("--upload",) if properties.profile == "postsubmit" else tuple()),
+                    *(
+                        ("--upload",)
+                        if properties.profile == "postsubmit"
+                        else tuple()
+                    ),
                     "--builder-name",
                     api.buildbucket.builder_name,
                     "--log-url",
@@ -64,7 +70,7 @@ def collect_binary_sizes(api, properties):
                 infra_step=True,
                 stdout=api.raw_io.output_text(),
             )
-            binary_sizes.update(json.loads(binary_size_result.stdout.strip().splitlines()[-1]))
+            binary_sizes |= json.loads(binary_size_result.stdout.strip().splitlines()[-1])
 
         api.step("Write binary sizes into output", None, infra_step=True)
         api.step.active_result.presentation.properties["binary_sizes"] = binary_sizes
@@ -86,7 +92,8 @@ def RunSteps(api, properties):
         check_list = result.stdout.strip().split("\n")
         for check in check_list:
             api.crosvm.step_in_container(
-                "tools/presubmit %s" % check, ["tools/presubmit", "--no-delta", check]
+                f"tools/presubmit {check}",
+                ["tools/presubmit", "--no-delta", check],
             )
 
         with api.step.nest("Collect binary sizes"):

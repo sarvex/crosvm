@@ -200,11 +200,11 @@ class CrosvmApi(recipe_api.RecipeApi):
                     "bash",
                     self.resource("codecov_wrapper.sh"),
                     codecov,
-                    "--nonZero",  # Enables error codes
+                    "--nonZero",
                     "--slug=google/crosvm",
-                    "--sha=" + sha,
+                    f"--sha={sha}",
                     "--branch=main",
-                    "-X=search",  # Don't search for coverage files, just upload the file below.
+                    "-X=search",
                     "-f",
                     filename,
                 ],
@@ -322,6 +322,5 @@ class CrosvmApi(recipe_api.RecipeApi):
 
     def __set_git_config(self, prop, value):
         self.m.step(
-            "Set git config: %s" % prop,
-            ["git", "config", "--global", prop, value],
+            f"Set git config: {prop}", ["git", "config", "--global", prop, value]
         )

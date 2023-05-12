@@ -25,7 +25,7 @@ def main(
     try:
         triple: Triple = Triple.from_shorthand(platform) if platform else Triple.host_default()
     except Exception as e:
-        raise type(e)(str(e) + f"\nValid platforms are {', '.join(SHORTHANDS.keys())}")
+        raise type(e)(f"{str(e)}\nValid platforms are {', '.join(SHORTHANDS.keys())}")
 
     chdir(CROSVM_ROOT)
 
@@ -48,7 +48,7 @@ def main(
     print("Clippy crosvm workspace")
     exclude_args = []
     if triple == Triple.from_shorthand("riscv64"):
-        exclude_args = ["--exclude=" + s for s in DO_NOT_BUILD_RISCV64]
+        exclude_args = [f"--exclude={s}" for s in DO_NOT_BUILD_RISCV64]
     clippy(
         "--workspace",
         f"--features={triple.feature_flag}",

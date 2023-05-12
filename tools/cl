@@ -74,9 +74,7 @@ class LocalChange(object):
     def change_id(self):
         msg = git("log -1 --format=email", self.sha).stdout()
         match = re.search("^Change-Id: (I[a-f0-9]+)", msg, re.MULTILINE)
-        if not match:
-            return None
-        return match.group(1)
+        return None if not match else match[1]
 
     @functools.cached_property
     def gerrit(self):
@@ -89,10 +87,7 @@ class LocalChange(object):
 
     @property
     def status(self):
-        if not self.gerrit:
-            return "NOT_UPLOADED"
-        else:
-            return self.gerrit.status
+        return "NOT_UPLOADED" if not self.gerrit else self.gerrit.status
 
 
 def get_upstream(branch: str = ""):
@@ -127,7 +122,7 @@ def prerequisites():
         git("remote add origin", CROSVM_URL).fg()
     if git("remote get-url origin").stdout() != CROSVM_URL:
         print("Your remote 'origin' does not point to the main crosvm repository.")
-        if confirm(f"Do you want to fix it?"):
+        if confirm("Do you want to fix it?"):
             git("remote set-url origin", CROSVM_URL).fg()
         else:
             sys.exit(1)
@@ -203,7 +198,7 @@ def rebase():
     the current branch will then be rebased into the -upstream branch.
     """
     branch_name = git("branch --show-current").stdout()
-    upstream_branch_name = branch_name + "-upstream"
+    upstream_branch_name = f"{branch_name}-upstream"
 
     if git("rev-parse", upstream_branch_name).success():
         print(f"Overwriting existing branch {upstream_branch_name}")
@@ -237,9 +232,10 @@ def upload(
         print(" ", change.sha, change.title)
     print()
 
-    if len(changes) > 1:
-        if not confirm("Uploading {} changes, continue?".format(len(changes))):
-            return
+    if len(changes) > 1 and not confirm(
+        f"Uploading {len(changes)} changes, continue?"
+    ):
+        return
 
     if (remote, branch) != ("origin", "main"):
         print(f"WARNING! Your changes are based on {remote}/{branch}, not origin/main.")
@@ -256,7 +252,7 @@ def upload(
     if try_:
         extra_args.append("l=Commit-Queue+1")
     if submit:
-        extra_args.append(f"l=Commit-Queue+2")
+        extra_args.append("l=Commit-Queue+2")
     if reviewer:
         extra_args.append(f"r={reviewer}")
 

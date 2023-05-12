@@ -32,11 +32,7 @@ IMAGE_DIR_URL = "https://storage.googleapis.com/crosvm/testvm"
 
 
 def cargo_target_dir():
-    # Do not call cargo if we have the environment variable specified. This
-    # allows the script to be used when cargo is not available but the target
-    # dir is known.
-    env_target = os.environ.get("CARGO_TARGET_DIR")
-    if env_target:
+    if env_target := os.environ.get("CARGO_TARGET_DIR"):
         return Path(env_target)
     text = subprocess.run(
         ["cargo", "metadata", "--no-deps", "--format-version=1"],
@@ -193,11 +189,7 @@ def run_qemu(
     port = pick_ssh_port()
 
     qemu = ARCH_TO_QEMU[arch]
-    if background:
-        serial = f"file:{data_dir(arch).joinpath('vm_log')}"
-    else:
-        serial = "stdio"
-
+    serial = f"file:{data_dir(arch).joinpath('vm_log')}" if background else "stdio"
     console.print(f"Booting {arch} VM with disk", hda)
     command = qemu.with_args(
         f"-hda {hda}",
@@ -253,8 +245,7 @@ def is_running(arch: Arch):
 
 
 def kill_vm(arch: Arch):
-    pid = read_pid_file(arch)
-    if pid:
+    if pid := read_pid_file(arch):
         try:
             os.kill(pid, 9)
             # Ping with signal 0 until we get an OSError indicating the process has shutdown.
@@ -351,9 +342,6 @@ class VmState(Enum):
 
 def state(arch: Arch):
     if is_running(arch):
-        if ping_vm(arch):
-            return VmState.REACHABLE
-        else:
-            return VmState.RUNNING_NOT_REACHABLE
+        return VmState.REACHABLE if ping_vm(arch) else VmState.RUNNING_NOT_REACHABLE
     else:
         return VmState.STOPPED

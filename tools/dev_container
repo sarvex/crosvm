@@ -86,10 +86,7 @@ PODMAN_ARGS = [
 
 
 def container_name(cros: bool):
-    if cros:
-        return CROS_CONTAINER_NAME
-    else:
-        return DEV_CONTAINER_NAME
+    return CROS_CONTAINER_NAME if cros else DEV_CONTAINER_NAME
 
 
 def container_revision(docker: cmd, container_id: str):
@@ -108,8 +105,7 @@ def container_is_running(docker: cmd, cros: bool):
 
 
 def delete_container(docker: cmd, cros: bool):
-    cid = container_id(docker, cros)
-    if cid:
+    if cid := container_id(docker, cros):
         print(f"Deleting dev-container {cid}.")
         docker("rm -f", cid).fg(quiet=True)
         return True
@@ -150,12 +146,12 @@ def ensure_container_is_alive(docker: cmd, docker_args: List[Optional[str]], cro
         print("Existing container is not running.")
         delete_container(docker, cros)
     elif cid and not cros and container_revision(docker, cid) != DEV_IMAGE_VERSION:
-        print(f"New image is available.")
+        print("New image is available.")
         delete_container(docker, cros)
 
     if not container_is_running(docker, cros):
         # Run neverending sleep to keep container alive while we 'docker exec' commands.
-        print(f"Starting container...")
+        print("Starting container...")
         docker(
             f"run --detach --name {container_name(cros)}",
             *docker_args,
@@ -183,7 +179,7 @@ def validate_podman(podman: cmd):
 
     username = os.environ["USER"]
     subuids = Path("/etc/subuid").read_text()
-    if not username in subuids:
+    if username not in subuids:
         print("Rootless podman requires subuid's to be set up for your user.")
         usermod = cmd(
             "sudo usermod --add-subuids 900000-965535 --add-subgids 900000-965535", username
@@ -247,10 +243,9 @@ def main(argv: List[str]):
         validate_podman(docker)
 
     if args.cros:
-        docker_args.append("--privileged")  # cros container requires privileged container
-        docker_args.append(CROS_IMAGE_NAME)
+        docker_args.extend(("--privileged", CROS_IMAGE_NAME))
     else:
-        docker_args.append(DEV_IMAGE_NAME + ":" + DEV_IMAGE_VERSION)
+        docker_args.append(f"{DEV_IMAGE_NAME}:{DEV_IMAGE_VERSION}")
 
     if args.self_test:
         TestDevContainer.docker = docker
@@ -260,7 +255,7 @@ def main(argv: List[str]):
 
     if args.stop:
         if not delete_container(docker, args.cros):
-            print(f"container is not running.")
+            print("container is not running.")
         return
 
     if args.clean:
@@ -289,7 +284,7 @@ def main(argv: List[str]):
     if args.hermetic:
         # cmd is passed to entrypoint
         quoted_cmd = list(map(quoted, command))
-        docker(f"run --rm", *tty_args, *docker_args, *quoted_cmd).fg()
+        docker("run --rm", *tty_args, *docker_args, *quoted_cmd).fg()
     else:
         # cmd is executed directly
         cid = ensure_container_is_alive(docker, docker_args, args.cros)

@@ -108,8 +108,8 @@ def parse(repo_root, recipes_cfg_path):
 IS_WIN = sys.platform.startswith(('win', 'cygwin'))
 
 _BAT = '.bat' if IS_WIN else ''
-GIT = 'git' + _BAT
-CIPD = 'cipd' + _BAT
+GIT = f'git{_BAT}'
+CIPD = f'cipd{_BAT}'
 REQUIRED_BINARIES = {GIT, CIPD}
 
 
@@ -146,10 +146,12 @@ def parse_args(argv):
   parser.add_argument('-O', '--project-override', action='append')
   parser.add_argument('--package', type=os.path.abspath)
   args, _ = parser.parse_known_args(argv)
-  for override in args.project_override or ():
-    if override.startswith(override_prefix):
-      return override[len(override_prefix):], args.package
-  return None, args.package
+  return next(
+      ((override[len(override_prefix):], args.package)
+       for override in args.project_override or ()
+       if override.startswith(override_prefix)),
+      (None, args.package),
+  )
 
 
 def checkout_engine(engine_path, repo_root, recipes_cfg_path):
@@ -231,7 +233,7 @@ def main():
     args = ['--package', recipes_cfg_path] + args
   engine_path = checkout_engine(engine_override, repo_root, recipes_cfg_path)
 
-  vpython = 'vpython3' + _BAT
+  vpython = f'vpython3{_BAT}'
   if not shutil.which(vpython):
     return f'Required binary is not found on PATH: {vpython}'
 
